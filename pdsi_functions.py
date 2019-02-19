@@ -52,7 +52,25 @@ def landplot(data,**kwargs):
    # else:
     #    land_mask = gpcp_land_mask()
      #   data = MV.masked_where(land_mask,data)
-    m = bmap(data,projection="cyl",lon_0=0,**kwargs)
+        """ quick plot of data on a lat,lon grid """
+   # lon = X.getLongitude()[:]
+    #lat = X.getLatitude()[:]
+    
+    
+    lon_0=0
+    lon = data.getLongitude().getBounds()[:,0]
+    lat = data.getLatitude().getBounds()[:,0]
+    
+    
+       
+    X,lon = shiftgrid(180,data,lon,start=False)
+    m = Basemap(lon_0=lon_0,projection="cyl",fix_aspect=False)
+    
+        
+    x,y=m(*np.meshgrid(lon,lat))
+    #if vmin is None:
+    m.pcolormesh(x,y,X,**kwargs)
+    #m = bmap(data,projection="cyl",lon_0=0,**kwargs)
     
     return m
 
@@ -436,6 +454,7 @@ class DroughtAtlas():
             noiseterm = da.get_slopes(self.get_noise(solver=solver)(time=(noisestart,noisestop)),L)/365.
         return modslopes,noiseterm
     def obs_SN(self,start_time,stop_time=None,overlapping=True,include_trees=True,include_dai=False,include_cru=False,include_piControl=False,noisestart=None,solver=None,plot=True):
+        to_return={}
         if stop_time is None:
             stop_time=cmip5.stop_time(self.get_tree_ring_projection())
         target_obs = self.get_tree_ring_projection(solver = solver)(time=(start_time,stop_time))
@@ -446,42 +465,54 @@ class DroughtAtlas():
         if plot:
             plt.hist(modslopes/ns,20,normed=True,color=get_dataset_color("h85"),alpha=.5)
             lab = str(start_time.year)+"-"+str(stop_time.year)
-            da.fit_normals_to_data(modslopes/ns,color=get_dataset_color("h85"),lw=3,label=lab+" Model projections")
+            da.fit_normals_to_data(modslopes/ns,color=get_dataset_color("h85"),lw=1,label="H85")
 
             plt.hist(noiseterm/ns,20,normed=True,color=get_dataset_color("tree_noise"),alpha=.5)
-            da.fit_normals_to_data(noiseterm/ns,color=get_dataset_color("tree_noise"),lw=3,label="Pre-1850 tree-ring reconstructions")
-        percentiles=[]
+            da.fit_normals_to_data(noiseterm/ns,color=get_dataset_color("tree_noise"),lw=1,label="Pre-1850 tree rings")
+        
         if include_trees:
+            percentiles=[]
             if plot:
-                plt.axvline(signal/ns,color=get_dataset_color("tree"),lw=3,label=lab+" Tree-ring reconstructions")
+                plt.axvline(signal/ns,color=get_dataset_color("tree"),lw=1,label=lab+" GDA trend")
             print signal/ns
             noise_percentile=stats.percentileofscore(noiseterm.tolist(),signal)
             h85_percentile=stats.percentileofscore(modslopes.tolist(),signal)
             percentiles += [noise_percentile,h85_percentile]
+            to_return["trees"]=[signal/ns]+percentiles
         if include_dai:
+            daipercentiles=[]
             dai_proj = self.project_dai_on_solver(start=start_time,solver=solver)
-            daitrend = cmip5.get_linear_trends(dai_proj(time=(start_time,stop_time)))
+            daitrend = float(cmip5.get_linear_trends(dai_proj(time=(start_time,stop_time))))
             daisignal = daitrend/ns
+            noise_percentile=stats.percentileofscore(noiseterm.tolist(),daitrend)
+            h85_percentile=stats.percentileofscore(modslopes.tolist(),daitrend)
+            daipercentiles += [noise_percentile,h85_percentile]
             if plot:
-                plt.axvline(daisignal,color=get_dataset_color("dai"),lw=3,label=lab+" Dai dataset")
+                plt.axvline(daisignal,color=get_dataset_color("dai"),lw=1,label="Dai")
             print "DAI signal/noise is "+str(daisignal)
+            to_return["dai"]=[daitrend/ns]+daipercentiles
 
         if include_cru:
+            crupercentiles=[]
             cru_proj = self.project_cru_on_solver(start=start_time,solver=solver)
-            crutrend = cmip5.get_linear_trends(cru_proj(time=(start_time,stop_time)))
+            crutrend = float(cmip5.get_linear_trends(cru_proj(time=(start_time,stop_time))))
+            noise_percentile=stats.percentileofscore(noiseterm.tolist(),crutrend)
+            h85_percentile=stats.percentileofscore(modslopes.tolist(),crutrend)
+            crupercentiles += [noise_percentile,h85_percentile]
             crusignal = crutrend/ns
             if plot:
-                plt.axvline(crusignal,color=get_dataset_color("cru"),lw=3,label=lab+" Cru dataset")
+                plt.axvline(crusignal,color=get_dataset_color("cru"),lw=1,label="CRU")
             print "CRU signal/noise is "+str(crusignal)
+            to_return["cru"]=[crutrend/ns]+crupercentiles
         if include_piControl:
             p=self.project_piControl_on_solver(solver=solver)
             noiseterm_mod=bootstrap_slopes(p,L)
             if plot:
                 plt.hist(noiseterm_mod/ns,20,normed=True,color=get_dataset_color("picontrol"),alpha=.5)
-                da.fit_normals_to_data(noiseterm_mod/ns,color=get_dataset_color("picontrol"),lw=3,label="PiControl simulations")
+                da.fit_normals_to_data(noiseterm_mod/ns,color=get_dataset_color("picontrol"),lw=1,label="PiControl")
             print "relative to model noise:"
             print float(signal)/np.std(noiseterm_mod)
-            percentiles+=[stats.percentileofscore(noiseterm_mod.tolist(),signal)]
+           # percentiles+=[stats.percentileofscore(noiseterm_mod.tolist(),signal)]
             
             
             
@@ -489,7 +520,7 @@ class DroughtAtlas():
             plt.legend(loc=0)
             plt.xlabel("S/N")
             plt.ylabel("Normalized Frequency")
-        return [signal/ns]+percentiles
+        return to_return
         
         
     def for_figure_4(self,start_time,stop_time=None,overlapping=True,include_trees=True,include_dai=False,include_cru=False,include_piControl=False,noisestart=None,solver=None):
@@ -522,7 +553,7 @@ class DroughtAtlas():
             
        
         return data 
-    def time_of_emergence(self,start_time,times = np.arange(10,76),noisestart=None,plot=True,solver= None,shade=False,**kwargs):
+    def time_of_emergence(self,start_time,times = np.arange(10,76),noisestart=None,plot=True,solver= None,uncertainty="lines",**kwargs):
         if noisestart is None:
             noisestart=cmip5.start_time(self.obs)
         if not hasattr(self,"P"):
@@ -537,11 +568,15 @@ class DroughtAtlas():
         self.TOE.setAxis(0,self.get_forced(solver=solver).getAxis(0))
         if plot:
             endyears = start_time.year+times
-            if not shade:
+            if uncertainty=="lines":
                 for ind_model in self.TOE.asma():
                     plt.plot(endyears,ind_model,alpha=.3,color=cm.Greys(.5),lw=1)
+            elif uncertainty=="bounds":
+                plt.plot(endyears,np.ma.min(self.TOE.asma(),axis=0),linestyle="--",**kwargs)
+                plt.plot(endyears,np.ma.max(self.TOE.asma(),axis=0),linestyle="--",**kwargs)
+            
             else:
-                plt.fill_between(endyears,np.ma.min(self.TOE.asma(),axis=0),np.ma.max(self.TOE.asma(),axis=0),alpha=.3,**kwargs)
+                plt.fill_between(endyears,np.ma.min(self.TOE.asma(),axis=0),np.ma.max(self.TOE.asma(),axis=0),alpha=.2,**kwargs)
             plt.plot(endyears,np.ma.average(self.TOE.asma(),axis=0),label=self.name+" model mean signal",**kwargs)
             #plt.fill_between(endyears,np.ma.min(self.TOE.asma(),axis=0),np.ma.max(self.TOE.asma(),axis=0),alpha=.3,**kwargs)
             
@@ -752,7 +787,7 @@ def get_map(name):
     elif name == "MXDA":
         m = Basemap(projection='lcc', resolution='c',width=6E6, height=6E6, lat_0=25, lon_0=-95,)
     elif name == "ANZDA":
-        m= Basemap(projection='lcc', resolution='c',width=8E6, height=5E6, lat_0=-30, lon_0=140,)
+        m= Basemap(projection='lcc', resolution='c',width=8E6, height=8E6, lat_0=-30, lon_0=140,)
     return m
 
 def individual_plots():
@@ -780,6 +815,18 @@ def individual_plots():
         
 def plot_regional(data,name,**kwargs):
     print kwargs.keys()
+    if "orientation" in kwargs.keys():
+        orientation=kwargs.pop("orientation")
+    else:
+        orientation="horizontal"
+    if "cax" in kwargs.keys():
+        cax=kwargs.pop("cax")
+    else:
+        cax=None
+    if "include_colorbar" in kwargs.keys():
+        include_colorbar=kwargs.pop("include_colorbar")
+    else:
+        include_colorbar=False
     cmapset=("cmap" in kwargs.keys())
     v=max([np.abs(np.ma.min(data)),np.abs(np.ma.max(data))])
     if not ("vmin" in kwargs.keys()):
@@ -794,8 +841,14 @@ def plot_regional(data,name,**kwargs):
     lat = data.getLatitude().getBounds()[:,0]
     x,y=m(*np.meshgrid(lon,lat))
     stuff=m.pcolormesh(x,y,data,**kwargs)
-    plt.colorbar(stuff)
-    #m.drawcoastlines(color='gray')
+    if cax is not None:
+        plt.colorbar(stuff,cax=cax,orientation=orientation,label="EOF loading")
+    else:
+        if include_colorbar:
+            plt.colorbar(stuff,orientation=orientation,label="EOF loading",shrink=.5)
+    
+        
+    
     return m
 
 
@@ -1005,3 +1058,44 @@ def plot_regional(data,name,**kwargs):
 #         da.fit_normals_to_data(noiseterm/ns,color=cm.Greens(.9),lw=3,label="Noise")
 #        plt.xlabel("S/N")
 #        plt.ylabel("Normalized Frequency")
+
+
+def aerosol_indirect(D):
+    """from Wilcox et al 2013, ERL"""
+
+    data = D.ALL.model
+    no_effect=["bcc_csm1_1","CCSM4","CESM1_CAM5"]
+    effect=["CanESM2","CNRM_CM5","HadGEM2_CC","HadGEM2_ES","inmcm4","MIROC5"]
+    models = [x.split(".")[3] for x in cmip5.models(D.ALL.model)]
+    #count the number of models we have in each
+    no_effect_nmod=0
+    for model in no_effect:
+        no_effect_nmod+=len(np.where(np.array(models)==model)[0])
+    effect_nmod=0
+    for model in effect:
+        effect_nmod+=len(np.where(np.array(models)==model)[0])
+
+    data_no_effect = MV.zeros((no_effect_nmod,)+data.shape[1:])
+    counter = 0
+    for model in no_effect:
+        for i in range(len(models)):
+            if models[i]==model:
+                data_no_effect[counter]=data[i]
+                counter+=1
+    NO=MV.average(data_no_effect,axis=0)
+    NO.setAxisList(data.getAxisList()[1:])    
+        
+    data_effect = MV.zeros((effect_nmod,)+data.shape[1:])
+    counter = 0
+    for model in effect:
+        for i in range(len(models)):
+            if models[i]==model:
+                data_effect[counter]=data[i]
+                counter+=1
+    YES = MV.average(data_effect,axis=0)
+    YES.setAxisList(data.getAxisList()[1:])
+    return NO,YES
+        
+    
+
+    

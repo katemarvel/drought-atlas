@@ -21,7 +21,6 @@ from scipy.interpolate import interp1d
 from scipy.optimize import brentq,fminbound
 import scipy.ndimage as ndimag
 
-#From python-utils repo
 import CMIP5_tools as cmip5
 import DA_tools as da
 import Plotting
@@ -42,8 +41,11 @@ cdms.setNetcdfDeflateLevelFlag(0)
 import pdsi_functions as b
 import soilmoisture_functions as soil
 
-## Data class: organizes individual drought atlases ###
+
+    
+
 class DATA():
+    """ Data and methods for regional and global drought atlases"""
     def __init__(self):
         self.NHDA = b.DroughtAtlas("ALL_OBS_plus_mex")
         self.NHDA.name="NHDA"
@@ -64,7 +66,7 @@ class DATA():
         
 
 def colorregions(region):
-    """Standardize colors for each region"""
+    """Set the colors to ensure a uniform scheme for each region """
     d={}
     d["ALL"]="k"
     d["NHDA"]=cm.gray(.5)
@@ -76,8 +78,10 @@ def colorregions(region):
     d["GDA"]="k"
     return d[region]
 
+
+
 def get_dataset_color(dataset,depth=None):
-    """Standardize colors for each dataset"""
+    """Set the colors to ensure a uniform scheme for each dataset """
     dataset=string.lower(dataset)
     d={}
     d["dai"]=cm.Blues(.5)
@@ -86,8 +90,8 @@ def get_dataset_color(dataset,depth=None):
 
     #models
     d["picontrol"]=cm.Purples(.8)
-    d["h85"]=cm.Oranges(.8)
-    d["tree_noise"]=cm.Greens(.8)
+    d["h85"]="k"
+    d["tree_noise"]=cm.PiYG(.2)
     
     #Soil moisture
     
@@ -111,45 +115,10 @@ def sm_label(depth):
     else:
         raise TypeError("must be 30cm or 2m")
 
-    
-def SM_PDSI_histogram(D,start_time,stop_time,SM=None):
-    """Make histograms of piControl and observed noise and forced trends"""
-    if SM == None:
-        SM=soil.SoilMoisture(D.ALL.obs[0].mask)
 
-    plt.subplot(222)
-    if stop_time.year<=2005:
-        include_trees=True
-    else:
-        include_trees=False
-    D.ALL.obs_SN(start_time,stop_time=stop_time,include_piControl=True,include_dai=True,include_cru=True,include_trees=include_trees)
-    plt.legend(fontsize=8,ncol=3)
-    plt.title("(b): D&A Results for PDSI")
-    plt.subplot(221)
-    pdsi_time_series(D,start_time,stop_time)
-    plt.legend(fontsize=8)
-    plt.title("(a): PDSI projections onto fingerprint")    
-    plt.subplot(223)
-    if start_time.year>=1981:
-        SM.obs_SN(start_time,stop_time,"30cm",overlapping=True)
-    else:
-        SM.histograms(start_time,stop_time,"30cm",overlapping=True)
-    plt.title("(c): 30cm soil moisture")
-    plt.legend(fontsize=8)
-    plt.subplot(224)
-    if start_time.year>=1981:
-        SM.obs_SN(start_time,stop_time,"2m",overlapping=True)
-    else:
-        SM.histograms(start_time,stop_time,"2m",overlapping=True)
-    plt.title("(d): 2m soil moisture")
-    plt.legend(fontsize=8)
-
-    return SM
-
-
-    
-
+   
 def pdsi_time_series(D,start_time,stop_time,SM=None,best_fit=True,aerosols=False,use_tree=True):
+    """ plot time series of PDSI data between start_time and stop_time"""
     if aerosols:
     
         aerosol_start = cdtime.comptime(1950,1,1)
@@ -167,7 +136,7 @@ def pdsi_time_series(D,start_time,stop_time,SM=None,best_fit=True,aerosols=False
     if use_tree:
         cdutil.setTimeBoundsYearly(tree_p)
         ytree=tree_p(time=(start_time,stop_time,"oob")).anom()
-        Plotting.time_plot(ytree,color=get_dataset_color("tree"),label="Tree ring reconstructions",lw=3)
+        Plotting.time_plot(ytree,color=get_dataset_color("tree"),label="Tree ring reconstructions",lw=1)
         xtree=x[:len(ytree)]
         if best_fit:
             p=np.polyfit(xtree,ytree.asma(),1)
@@ -176,7 +145,7 @@ def pdsi_time_series(D,start_time,stop_time,SM=None,best_fit=True,aerosols=False
     cdutil.setTimeBoundsYearly(cru_p)
     if start_time.year>=1900:
         ycru=cru_p(time=(start_time,stop_time,"oob")).anom()
-        Plotting.time_plot(ycru,color=get_dataset_color("cru"),label ="CRU",lw=3)
+        Plotting.time_plot(ycru,color=get_dataset_color("cru"),label ="CRU",lw=1)
         xcru=x[:len(ycru)]
         if best_fit:
             p=np.polyfit(xcru,ycru.asma(),1)
@@ -186,7 +155,7 @@ def pdsi_time_series(D,start_time,stop_time,SM=None,best_fit=True,aerosols=False
    
    
         ydai=dai_p(time=(start_time,stop_time,"oob")).anom()
-        Plotting.time_plot(ydai,color=get_dataset_color("dai"),label="Dai",lw=3)
+        Plotting.time_plot(ydai,color=get_dataset_color("dai"),label="Dai",lw=1)
         xdai=x[:len(ydai)]
         if best_fit:
             p=np.polyfit(xdai,ydai.asma(),1)
@@ -205,7 +174,7 @@ def pdsi_time_series(D,start_time,stop_time,SM=None,best_fit=True,aerosols=False
             for dataset in ["GLEAM","MERRA2"]:
                 ymoist=SM.OBS_PROJECTIONS[dataset][depth](time=(start_time,stop_time))
                 xmoist=x[:len(ymoist)]
-                Plotting.time_plot(ymoist,color=get_dataset_color(dataset,depth),lw=3,label=dataset+": "+sm_label(depth))
+                Plotting.time_plot(ymoist,color=get_dataset_color(dataset,depth),lw=1,label=dataset+": "+sm_label(depth))
                 if best_fit:
                     p=np.polyfit(xmoist,ymoist.asma(),1)
                     plt.plot(xmoist,np.polyval(p,xmoist),"--",color=get_dataset_color(dataset,depth),lw=1)
@@ -213,96 +182,8 @@ def pdsi_time_series(D,start_time,stop_time,SM=None,best_fit=True,aerosols=False
     if aerosols:
         return ytree,ycru,ydai
     
-def plot_sn_data(data,i):
-    noise=data["noise"].asma()
-    models=data["modslopes"].asma()
-    y=np.zeros_like(noise)+i
-    plt.plot(noise,y,".",color=cm.Greens(.8))
-    plt.plot(models,np.zeros_like(models)+i+.2,color=get_dataset_color("H85"))
-    if "tree_rings" in data.keys():
-        plt.plot([data["tree_rings"]],[i+.2],"o",color=get_dataset_color("tree"))
-    if "cru" in data.keys():
-        plt.plot([data["cru"]],[i+.2],"o",color=get_dataset_color("cru"))
-    if "dai" in data.keys():
-        plt.plot([data["dai"]],[i+.2],"o",color=get_dataset_color("dai"))
-    if "picontrol" in data.keys():
-        mnoise=data["picontrol"].asma()
-        plt.plot(mnoise,np.zeros_like(mnoise)+i+0.05,".",color=get_dataset_color("picontrol"))
-import seaborn as sns
-import pandas as pd
-def violinplot(D):
-    gettime=lambda year: cdtime.comptime(year,1,1)
-     
-    getdata=lambda year: D.ALL.for_figure_4(gettime(year),gettime(year).add(30,cdtime.Years),include_piControl=True,include_dai=True,include_cru=True)
-    myyears=[1945,1975]
-    
-    data1915=getdata(1915)
-    ns=data1915["noise"].asma()
-    ms=data1915["modslopes"].asma()
-    
-    labels=np.concatenate((np.repeat(["30 year pre-industrial trends"],len(ns)),np.repeat(["1915-1944"],len(ms))))
-    slopes = np.concatenate((ns,ms))
-    for year in myyears:
-        data=getdata(year)
-        ms=data["modslopes"].asma()
-        lab=str(year)+"-"+str(year+29)
-        labels=np.append(labels,np.repeat(lab,len(ms)))
-        slopes = np.append(slopes,ms)
-    
-    d={"labels":labels,"slopes":slopes}
-    df2=pd.DataFrame(d)
-    sns.violinplot(y=df2["slopes"],x=df2["labels"])
-    
-    
-#depths=["30cm","2m"]    
-def soil_SN_figure(SM,depth,start_time=None):
-    noise=[]
-    signal_gleam=[]
-    signal_merra2=[]
-    
-    if start_time is None:
-        start_time=cdtime.comptime(1981,1,1)
-    SM.project_soilmoisture("MERRA2")
-    SM.project_soilmoisture("GLEAM")
-    SM.project_piControl_on_solver(depth)
-    SM.model_projections(depth)
-    stop_time=cdtime.comptime(2017,12,31)
-    nt=stop_time.year-start_time.year
-    nmodel=SM.P[depth].shape[0]
-    H85=np.ma.zeros((nmodel,nt))
-    t=start_time.add(1,cdtime.Years)
-    i=0
-    while t.cmp(stop_time)<0:
-        
-        L=t.year-start_time.year+1
-        modslopes,noiseterm = SM.sn_at_time(start_time,L,depth)
-        H85[:,i] = modslopes
-        noise += [np.std(noiseterm)]
-        signal_gleam += [float(cmip5.get_linear_trends(SM.OBS_PROJECTIONS["GLEAM"][depth](time=(start_time,t))))]
-        signal_merra2 += [float(cmip5.get_linear_trends(SM.OBS_PROJECTIONS["MERRA2"][depth](time=(start_time,t))))]
-        t=t.add(1,cdtime.Years)
-        i+=1
-    timex=np.arange(start_time.year+1,start_time.year+1+nt)
-
-    for i in range(nmodel):
-        plt.plot(timex,H85[i]/np.array(noise),c="k",lw=1,alpha=.2)
-    plt.plot(timex,np.array(signal_gleam)/np.array(noise),label="GLEAM",color=get_dataset_color("GLEAM",depth),lw=3)
-    plt.plot(timex,np.array(signal_merra2)/np.array(noise),label="MERRA2",color=get_dataset_color("MERRA2",depth),lw=3)
-    likely=stats.norm.interval(.66)[1]
-    vlikely=stats.norm.interval(.90)[1]
-    certain=stats.norm.interval(.99)[1]
-    plt.axhline(likely,lw=3,color=cm.Reds(.33),label="Likely",alpha=.5)
-    plt.axhline(vlikely,lw=3,color=cm.Reds(.66),label="Very Likely",alpha=.5)
-    plt.axhline(certain,lw=3,color=cm.Reds(.99),label="Virtually Certain",alpha=.5)
-    plt.xlabel("Last year of trend beginning in 1981")
-    plt.ylabel("Signal to Noise Ratio")
    
 
-    
-    
-    return noise,signal_gleam,signal_merra2,H85
-        
-        
                                    
 def pdsi_SN_figure(D,start_time=None,stop_time=None,use_dai=True):
     noise_cru=[]
@@ -572,51 +453,36 @@ def fingerprint_agreement_percentages(D,SM=None):
     
     
 #MAINTEXT FIGURES
-def Figure1(D,fortalk=False):
+def NatureRevisionsFigure2(D,fortalk=False):
     mask = D.ALL.obs[0].mask
     soil.soilmoisture_fingerprints(mask,fortalk=fortalk)
     ax=plt.gcf().axes[-1]
     ax.set_xlim(1900,2050)
     ax.set_ylim(-0.4,0.4)
-
-def Figure2(D,fortalk=False):
-    if fortalk:
-        c="w"
-        
-    else:
-        c="k"
-    plt.subplot(121)
-    Plotting.time_plot(D.ALL.get_noise(),color=cm.Greens(.8),label="Pre-industrial Noise",lw=1)
-    Plotting.time_plot(D.ALL.projection(time=('1850-1-1','1975-12-31')),c=c,lw=1)
-    plt.ylabel("Projection (temporal amplitude)")
-    plt.xlabel("Year")
-    plt.legend(fontsize=8)
-    plt.title("(a): Global Drought Atlas Projection Onto Fingerprint")
-    plt.subplot(122)
-    t1900 = cdtime.comptime(1900,7,1)
-    times = np.arange(1,201)
-    
-
-    likely=stats.norm.interval(.66)[1]
-    vlikely=stats.norm.interval(.90)[1]
-    certain=stats.norm.interval(.99)[1]
-    plt.axhline(likely,lw=1,color=cm.Reds(.33),label="Likely",alpha=.5)
-    plt.axhline(vlikely,lw=1,color=cm.Reds(.66),label="Very Likely",alpha=.5)
-    plt.axhline(certain,lw=1,color=cm.Reds(.99),label="Virtually Certain",alpha=.5)
-    D.ALL.time_of_emergence(t1900,times=times,color="k",lw=3)
+    if not fortalk:
+    #cosmetic changes for Nature
+        fig=plt.gcf()
+        fig.axes[0].set_title("(a)",fontsize=6)
+        fig.axes[2].set_title("(b)",fontsize=6)
+        fig.axes[4].set_title("(c)",fontsize=6)
+        fig.axes[6].set_title("(d)",fontsize=6)
+        pcax=fig.axes[-1]
+        pcax.yaxis.set_label_position('right')
+        pcax.yaxis.set_ticks_position('right')
+        plt.setp(pcax.yaxis.get_label(),fontsize=6)
+        plt.setp(pcax.xaxis.get_label(),fontsize=6)
+        plt.setp(pcax.get_yticklabels(),fontsize=6)
+        plt.setp(pcax.get_xticklabels(),fontsize=6)
+        cbaxes=fig.axes[1::2]
+        for cax in cbaxes:
+            ticklabels=["-0.1","","-0.05","","0","","0.05","","0.1"]
+            cax.set_yticklabels(ticklabels)
+            plt.setp(cax.yaxis.get_ticklabels(),fontsize=6)
+            plt.setp(cax.yaxis.get_label(),fontsize=6)
    
-    plt.title("(b): Model-predicted time of emergence")
+  
+def NatureRevisions_Figure4(D,SM):
 
-   # plt.subplot(133)
-    pdsi_SN_figure(D,cdtime.comptime(1900,1,1),use_dai=True)
-    plt.legend(loc=0,ncol=2,fontsize=8)
-
-
-def old_Figure3(D,SM=None):
-    start_time = cdtime.comptime(1901,1,1)
-    stop_time = cdtime.comptime(1949,12,31)
-    SM_PDSI_histogram(D,start_time,stop_time,SM=SM)
-def Figure3(D,SM):
     recent_start = cdtime.comptime(1981,1,1)
     recent_stop=cdtime.comptime(2017,12,31)
     #historical_stop = cdtime.comptime(2005,12,31)
@@ -629,43 +495,43 @@ def Figure3(D,SM):
 
     plt.subplot(421)
     pdsi_time_series(D,hist_start,hist_stop,best_fit=True)
-    plt.title("(a): 1900-1949 projections")
-    L=plt.legend(loc=0,ncol=3,fontsize=8)
+    plt.title("(a)",fontsize=6)
+    L=plt.legend(loc=0,ncol=3,fontsize=6)
     
     L.set_frame_on(False)
 
     plt.subplot(422)
     D.ALL.obs_SN(hist_start,stop_time=hist_stop,include_piControl=True,include_dai=True,include_cru=True,include_trees=True)
-    plt.title("(b): D&A Results: 1900-1949")
-    L=plt.legend(loc=0,ncol=1,fontsize=8)
-    L.get_texts()[-1].set_text("50-year trends in PiControl simulations")
+    plt.title("(b)",fontsize=6)
+    L=plt.legend(loc=0,ncol=1,fontsize=6)
+    #L.get_texts()[-1].set_text("50-year trends in PiControl simulations")
     L.set_frame_on(False)
 
     plt.subplot(423)
     pdsi_time_series(D,aerosol_start,aerosol_stop,best_fit=True)
-    plt.title("(c): 1950-1975 projections")
-    L=plt.legend(loc=0,ncol=3,fontsize=8)
+    plt.title("(c)",fontsize=6)
+    L=plt.legend(loc=0,ncol=3,fontsize=6)
     L.set_frame_on(False)
 
     plt.subplot(424)
     D.ALL.obs_SN(aerosol_start,stop_time=aerosol_stop,include_piControl=True,include_dai=True,include_cru=True,include_trees=True)
-    plt.title("(d): D&A Results: 1950-1975")
-    L=plt.legend(loc=0,ncol=1,fontsize=8)
-    L.get_texts()[-1].set_text("26-year trends in PiControl simulations")
+    plt.title("(d)",fontsize=6)
+    L=plt.legend(loc=0,ncol=1,fontsize=6)
+    #L.get_texts()[-1].set_text("26-year trends in PiControl simulations")
     L.set_frame_on(False)
     #plt.legend().set_visible(False)  
 
     plt.subplot(425)
     pdsi_time_series(D,recent_start,recent_stop,best_fit=False,SM=SM,use_tree=False)
-    plt.title("(e): 1981-2005 projections")
-    L=plt.legend(loc=0,ncol=3,fontsize=8)
+    plt.title("(e)",fontsize=6)
+    L=plt.legend(loc=0,ncol=3,fontsize=6)
     L.set_frame_on(False)
     
     plt.subplot(426)
     D.ALL.obs_SN(recent_start,stop_time=recent_stop,include_piControl=True,include_dai=False,include_cru=True,include_trees=False)
-    plt.title("(f): D&A Results: 1981-2017 ")
-    L=plt.legend(loc=0,ncol=1,fontsize=8)
-    L.get_texts()[-1].set_text("37-year trends in PiControl simulations")
+    plt.title("(f)",fontsize=6)
+    L=plt.legend(loc=0,ncol=1,fontsize=6)
+    #L.get_texts()[-1].set_text("37-year trends in PiControl simulations")
     L.set_frame_on(False)
     #plt.legend().set_visible(False)
 
@@ -675,20 +541,23 @@ def Figure3(D,SM):
     recent_stop = cdtime.comptime(2017,12,31)
     #plt.subplot(121)
     SM.obs_SN(recent_start,recent_stop,"30cm")
-    L=ax.legend(fontsize=8,loc=2)
+    L=ax.legend(fontsize=6,loc=2)
     L.get_texts()[0].set_text("37 year trends in PiControl simulations")
     L.get_texts()[1].set_text("1981-2017 model projections")
     L.set_frame_on(False)
-    plt.title("(g): D&A Results: 1981-2017 (surface soil moisture)")
+    plt.title("(g)",fontsize=6)
     plt.subplot(428)
     SM.obs_SN(recent_start,recent_stop,"2m")
     L=ax.legend(fontsize=8,loc=2)
     L.get_texts()[0].set_text("37 year trends in PiControl simulations")
     L.get_texts()[1].set_text("1981-2017 model projections")
-    plt.title("(h): D&A Results: 1981-2017 (root zone soil moisture)")
+    plt.title("(h)",fontsize=6)
     L.set_frame_on(False)
-
-    
+    for ax in plt.gcf().axes:
+        plt.setp(ax.xaxis.get_label(),fontsize=6)
+        plt.setp(ax.yaxis.get_label(),fontsize=6)
+        plt.setp(ax.get_xticklabels(),fontsize=6)
+        plt.setp(ax.get_yticklabels(),fontsize=6)
     
 
     
@@ -747,6 +616,13 @@ def old_Figure4(D,SM):
     
 def Smodel_trends(D):
     m=b.landplot(cmip5.get_linear_trends(D.ALL.mma))
+    m.fillcontinents(color="gray",zorder=0)
+    plt.colorbar(orientation="horizontal",label="1900-2099 trend (PDSI/decade)")
+    
+    
+    plt.ylim(-60,90)
+   
+    
 def Saerosol(D):
     pdsi_SN_figure(D,start_time=cdtime.comptime(1950,1,1))
    
@@ -769,26 +645,30 @@ def Snoise(D):
 def Savproj(D):
     average_vs_projection(D)
 
-def Saerosol_fingerprint(D):
+def NatureRevisions_Figure5(D):
     aerosol_start = cdtime.comptime(1950,1,1)
     aerosol_stop = cdtime.comptime(1975,12,31)
     aerosolsolver=Eof(D.ALL.mma(time=(aerosol_start,aerosol_stop)),weights='area')
     fac=da.get_orientation(aerosolsolver)
     plt.subplot(221)
     m=b.landplot(fac*aerosolsolver.eofs()[0],vmin=-.1,vmax=.1)
+    m.fillcontinents(color="gray",zorder=0)
+    
     varex= str(int(100*np.round(aerosolsolver.varianceFraction()[0],2)))
-    plt.title("(a): 1950-1975 historical fingerprint ("+varex+"% of variance explained)")
+    plt.title("(a)")#: 1950-1975 historical fingerprint ("+varex+"% of variance explained)",fontsize=8)
     m.drawcoastlines(color='gray')
+    plt.ylim(-60,90)
     plt.colorbar(orientation='horizontal',label='EOF loading')
     plt.subplot(222)
-    Plotting.time_plot(fac*aerosolsolver.pcs()[:,0],color="k",lw=3)
-    plt.title("(b): Associated PC")
+    Plotting.time_plot(fac*aerosolsolver.pcs()[:,0],color=cm.Greys(.8),lw=1)
+    plt.title("(b)")#: Associated PC",fontsize=8)
     plt.ylabel("Temporal amplitude")
 
     plt.subplot(223)
 
     target_obs,cru_proj,dai_proj=pdsi_time_series(D,aerosol_start,aerosol_stop,aerosols=True)
-    plt.title("(c): Projections on fingerprint")
+    plt.legend(fontsize=6)
+    plt.title("(c)")#: Projections on fingerprint",fontsize=8)
     plt.subplot(224)
 
    # target_obs = D.ALL.get_tree_ring_projection(solver = aerosolsolver)(time=(aerosol_start,aerosol_stop))
@@ -798,12 +678,12 @@ def Saerosol_fingerprint(D):
     signal = float(cmip5.get_linear_trends(target_obs))
     plt.hist(modslopes/ns,20,normed=True,color=get_dataset_color("h85"),alpha=.5)
     lab = str(aerosol_start.year)+"-"+str(aerosol_stop.year)
-    da.fit_normals_to_data(modslopes/ns,color=get_dataset_color("h85"),lw=3,label=lab+" Model projections")
+    da.fit_normals_to_data(modslopes/ns,color=get_dataset_color("h85"),lw=1,label="H85")
 
     plt.hist(noiseterm/ns,20,normed=True,color=get_dataset_color("tree_noise"),alpha=.5)
-    da.fit_normals_to_data(noiseterm/ns,color=get_dataset_color("tree_noise"),lw=3,label="Pre-1850 tree-ring reconstructions")
+    da.fit_normals_to_data(noiseterm/ns,color=get_dataset_color("tree_noise"),lw=1,label="Pre-1850 tree rings")
     percentiles=[]
-    plt.axvline(signal/ns,color=get_dataset_color("tree"),lw=3,label=lab+" Tree-ring reconstructions")
+    plt.axvline(signal/ns,color=get_dataset_color("tree"),lw=1,label=lab+" GDA trend")
     
     noise_percentile=stats.percentileofscore(noiseterm.tolist(),signal)
     h85_percentile=stats.percentileofscore(modslopes.tolist(),signal)
@@ -814,7 +694,7 @@ def Saerosol_fingerprint(D):
     print "DAI slope is "+str(daitrend)
     daisignal = daitrend/ns
     
-    plt.axvline(daisignal,color=get_dataset_color("dai"),lw=3,label=lab+" Dai dataset")
+    plt.axvline(daisignal,color=get_dataset_color("dai"),lw=1,label="Dai")
     print "DAI signal/noise is "+str(daisignal)
 
     
@@ -823,17 +703,37 @@ def Saerosol_fingerprint(D):
     print "CRU slope is "+str(crutrend)
     crusignal = crutrend/ns
     
-    plt.axvline(crusignal,color=get_dataset_color("cru"),lw=3,label=lab+" Cru dataset")
+    plt.axvline(crusignal,color=get_dataset_color("cru"),lw=1,label="CRU")
     print "CRU signal/noise is "+str(crusignal)
 
    
             
        
-    plt.legend(loc=0)
+    plt.legend(loc=0,fontsize=8)
     plt.xlabel("S/N")
     plt.ylabel("Normalized Frequency")
-    plt.title("(d): Detection and Attribution Results")
-    
+    plt.title("(d)")#: Detection and Attribution Results",fontsize=8)
+    fig=plt.gcf()
+    for ax in fig.axes:
+        plt.setp(ax.xaxis.get_label(),fontsize=6)
+        plt.setp(ax.yaxis.get_label(),fontsize=6)
+        plt.setp(ax.get_xticklabels(),fontsize=6)
+        plt.setp(ax.get_yticklabels(),fontsize=6)
+    ax=fig.axes[0]
+    ax.set_title("(a)",fontsize=6)
+    ax=fig.axes[2]
+    ax.set_title("(b)",fontsize=6)
+    ax=fig.axes[3]
+    ax.set_title("(c)",fontsize=6)
+    ax=fig.axes[4]
+    ax.set_title("(d)",fontsize=6)
+    leg=ax.legend(fontsize=6,ncol=1,loc=2)
+    leg.set_frame_on(False)
+    cax=fig.axes[1]
+    ticklabels=["-0.1","","-0.05","","0","","0.05","","0.1"]
+    cax.set_xticklabels(ticklabels)
+    plt.setp(cax.xaxis.get_ticklabels(),fontsize=6)
+    plt.setp(cax.xaxis.get_label(),fontsize=6)
        
         
         
@@ -964,5 +864,354 @@ def forTable(D):
             towrite2 = [X]+(map(str,towrite))
             csvwriter.writerow(towrite2)
    
+
+#nature figure sizes (cm)
+onecol=8.9
+oneandahalfcol=12.0
+twocol=18.3
+height=24.7
+def cm2inch(value):
+    return value/2.54
+def naturefig(colsize=1,heightfrac=1):
+    if colsize==1:
+        col=8.9
+    elif colsize==1.5:
+        col=12.0
+    elif colsize==2:
+        col=18.3
+    else:
+        print "col must be one of 1,1.5,2"
         
         
+    fig=plt.figure(figsize=(cm2inch(col),cm2inch(24.7*heightfrac)))
+    return fig
+
+            
+def NatureRevisions_Figure1(D):
+    #fig=naturefig(1.5,heightfrac=1) 
+    i=1
+    
+    
+    letters =["a","b","c","d","e"]
+    letters2=["f","g","h","i","j"]
+    for X in ["ANZDA","MADA","MXDA","NADA","OWDA"]:
+        solver = getattr(D,X).solver
+        fac=da.get_orientation(solver)
+        calib_period=('1920-1-1','2005-12-31')
+        eof1 = fac*solver.eofs()[0]
+        
+        
+       
+          
+       # plt.subplot(2,5,i)
+        plt.subplot(5,2,2*i-1)
+        
+        m=b.plot_regional(eof1,X,vmin=-.15,vmax=.15)
+        
+        m.drawcoastlines(color='gray')
+            
+      
+        plt.title("("+letters[i-1]+")",fontsize=6)#: "+X+" fingerprint",fontsize=8)
+        if letters[i-1]=="a":
+            print "AAAA"
+        plt.subplot(5,2,2*i)
+        #if i==1:
+         #   fig = plt.gcf()
+          #  cb_ax = fig.add_axes([0.1, 0.55, 0.83, 0.02])
+           # plt.colorbar(label="EOF Loading",cax=cb_ax)
+        
+        
+       # i+=1
+        #plt.subplot(2,5,i+5)
+        
+        
+        cru=getattr(D,X).project_cru_on_solver(start='1901-1-1')
+        Plotting.time_plot(cru-np.ma.average(cru(time=calib_period)),lw=1,color=get_dataset_color("CRU"),label="CRU")
+        dai=getattr(D,X).project_dai_on_solver(start='1901-1-1')
+        Plotting.time_plot(dai-np.ma.average(dai(time=calib_period)),lw=1,color=get_dataset_color("DAI"),label="DAI")
+        trees = getattr(D,X).projection(time=('1900-1-1','1975-1-1'))
+        Plotting.time_plot(trees-np.ma.average(trees(time=calib_period)),lw=1,color=get_dataset_color("tree"),label=X)
+        pc1= fac*solver.pcs()[:,0](time=('1900-1-1','2050-12-31'))
+        Plotting.time_plot(pc1-np.ma.average(pc1(time=calib_period)),lw=1,color='k',label="PC1")
+        plt.ylim(-.3,.3)
+        plt.setp(plt.gca().get_yticklabels(),fontsize=6)
+        
+            
+        plt.ylabel("Temporal Amplitude",fontsize=6)
+        if i!=5:
+            plt.xticks([])
+            
+        else:
+            plt.legend(loc=0,ncol=2,fontsize=6)
+            plt.setp(plt.gca().get_xticklabels(),fontsize=6)
+            plt.xlabel("Year",fontsize=6)
+        
+        
+        plt.title("("+letters2[i-1]+")",fontsize=6)#: "+X+" PC1 and projections",fontsize=8)
+        i+=1
+    #colorbar kludge
+    if 1:
+        fig = plt.gcf()
+        #fig.subplots_adjust(left=-.15)
+        #fig.subplots_adjust(bottom=.075)
+        axes = plt.gcf().axes
+        ax = axes[0]
+        #left=fig.subplotpars.left+fig.subplotpars.hspace/2.
+        left=0.03
+        height = 0.01
+        #bottom=fig.subplotpars.bottom-height*1.5
+        bottom=.05
+        width=.22
+        #width=0.5-fig.subplotpars.hspace*1.5
+    
+        
+        
+        cb_ax = fig.add_axes([left,bottom,width,height])    
+        ax.clear()
+        eof1= D.ANZDA.solver.eofs()[0]*da.get_orientation(D.ANZDA.solver)
+        m=b.plot_regional(eof1,"ANZDA",vmin=-.15,vmax=.15,ax=ax,cax=cb_ax,orientation='horizontal')
+        m.drawcoastlines(color='gray',ax=ax)
+        #cb_ax.yaxis.set_ticks_position('left')
+        #cb_ax.yaxis.set_label_position("left")
+        cb_ax.set_xticklabels(["-0.15","","","0","","","0.15"])
+        plt.setp(cb_ax.get_xticklabels(),fontsize=6)
+        plt.setp(cb_ax.xaxis.get_label(),fontsize=6)
+        fig.axes[0].set_title("(a)",fontsize=6) # for some reason this disappears
+
+        return cb_ax
+
+        
+
+def NatureRevisions_Figure3(D,start_year=2019):
+    plt.subplot(311)
+    Plotting.time_plot(D.ALL.get_noise(),color=get_dataset_color("tree"),label="Pre-industrial Noise",lw=1)
+    Plotting.time_plot(D.ALL.projection(time=('1850-1-1','1975-12-31')),c="k",lw=1)
+    plt.ylabel("Projection (temporal amplitude)",fontsize=8)
+    plt.xlabel("Year")
+    plt.legend()
+    plt.title("(a)")#: Global Drought Atlas Projection Onto Fingerprint",fontsize=8)
+    plt.subplot(312)
+    t1900 = cdtime.comptime(1900,7,1)
+    times = np.arange(1,201)
+    
+
+    likely=stats.norm.interval(.66)[1]
+    vlikely=stats.norm.interval(.90)[1]
+    certain=stats.norm.interval(.99)[1]
+    plt.axhline(likely,lw=1,color=cm.Reds(.33),label="Likely",alpha=.5)
+    plt.axhline(vlikely,lw=1,color=cm.Reds(.66),label="Very Likely",alpha=.5)
+    plt.axhline(certain,lw=1,color=cm.Reds(.99),label="Virtually Certain",alpha=.5)
+    D.ALL.time_of_emergence(t1900,times=times,color="k",lw=3)
+    pdsi_SN_figure(D,cdtime.comptime(1900,1,1),use_dai=True)
+   
+    plt.title("(b)")#: Model-predicted time of emergence",fontsize=8)
+    
+    plt.subplot(313)
+    hist_start = cdtime.comptime(1900,1,1)
+    times = np.arange(10,2100-start_year)
+    for X in ["ALL","ANZDA","MADA","MXDA","NADA","OWDA"]:
+        getattr(D,X).time_of_emergence(cdtime.comptime(start_year,1,1),times=times,color=colorregions(X),uncertainty="shade")
+    certain=stats.norm.interval(.99)[1]
+    plt.axhline(certain,lw=1,color=cm.Reds(.99),label="Virtually Certain", alpha=.5)
+    plt.title("(c)")#: Time of Emergence (assuming "+str(start_year)+" start)",fontsize=8)
+
+    ax1,ax2,ax3=plt.gcf().axes
+    ax2.set_xlim(1900,2055)
+    ax2.set_ylim(-3,7)
+    for ax in [ax1,ax2,ax3]:
+        ax.set_xlabel(ax.get_xlabel(),fontsize=8)
+        ax.set_ylabel(ax.get_ylabel(),fontsize=8)
+    ax3.set_xlim(start_year+10,start_year+55)
+    ax2.legend(fontsize=6)
+    ax3.legend(fontsize=6)
+    ax1.legend(fontsize=6)
+
+    for ax in plt.gcf().axes:
+        plt.setp(ax.get_xticklabels(),fontsize=6)
+        plt.setp(ax.get_yticklabels(),fontsize=6)
+        plt.setp(ax.xaxis.get_label(),fontsize=6)
+        plt.setp(ax.yaxis.get_label(),fontsize=6)
+        
+from matplotlib.patches import Polygon
+def NatureRevisions_Figure6(D):
+    histdata = []
+    aerosoldata=[]
+    recentdata=[]
+    datadict={}
+    recent_start = cdtime.comptime(1981,1,1)
+    recent_stop=cdtime.comptime(2017,12,31)
+    #historical_stop = cdtime.comptime(2005,12,31)
+
+    aerosol_start = cdtime.comptime(1950,1,1)
+    aerosol_stop = cdtime.comptime(1975,12,31)
+
+    hist_start = cdtime.comptime(1900,1,1)
+    hist_stop = cdtime.comptime(1949,12,31)
+    ax1=plt.subplot(131)
+    ax2=plt.subplot(132)
+    ax3=plt.subplot(133)
+    xc=1.5
+    for X in ["ALL","ANZDA","MADA","MXDA","NADA","OWDA"]:
+        hist=getattr(D,X).for_figure_4(hist_start,stop_time=hist_stop,include_trees=True,include_cru=True,include_dai=True)
+        histdata+=[hist["noise"]/np.std(hist["noise"]),hist["modslopes"]/np.std(hist["noise"])]
+        ax1.plot([hist["tree_rings"]/np.std(hist["noise"])],[xc],"o",color=get_dataset_color("tree"))
+        ax1.plot([hist["dai"]/np.std(hist["noise"])],[xc],"o",color=get_dataset_color("dai"))
+        ax1.plot([hist["cru"]/np.std(hist["noise"])],[xc],"o",color=get_dataset_color("cru"))
+
+        aerosol=getattr(D,X).for_figure_4(aerosol_start,stop_time=aerosol_stop,include_trees=True,include_cru=True,include_dai=True)
+        aerosoldata+=[aerosol["noise"]/np.std(aerosol["noise"]),aerosol["modslopes"]/np.std(aerosol["noise"])]
+        ax2.plot([aerosol["tree_rings"]/np.std(aerosol["noise"])],[xc],"o",color=get_dataset_color("tree"))
+        ax2.plot([aerosol["dai"]/np.std(aerosol["noise"])],[xc],"o",color=get_dataset_color("dai"))
+        ax2.plot([aerosol["cru"]/np.std(aerosol["noise"])],[xc],"o",color=get_dataset_color("cru"))
+
+        recent=getattr(D,X).for_figure_4(recent_start,stop_time=recent_stop,include_trees=False,include_cru=True,include_dai=True)
+        recentdata+=[recent["noise"]/np.std(recent["noise"]),recent["modslopes"]/np.std(recent["noise"])]
+        
+        ax3.plot([recent["dai"]/np.std(recent["noise"])],[xc],"o",color=get_dataset_color("dai"))
+        ax3.plot([recent["cru"]/np.std(recent["noise"])],[xc],"o",color=get_dataset_color("cru"))
+        xc+=2
+    
+    #fig, ax1 = plt.subplots(figsize=(10, 6))
+    #fig.canvas.set_window_title('A Boxplot Example')
+    #fig.subplots_adjust(left=0.075, right=0.95, top=0.9, bottom=0.25)
+
+    boxplot_mydata(histdata,ax1)
+    ax1.set_xlim(-5,5)
+    region_color_axis(ax1,ticks=True)
+    ax1.set_title("(a):1900-1949",fontsize=6)
+    ax1.set_xlabel("S/N")
+    ax1.axvline(0,ls=":",c="k")
+    boxplot_mydata(aerosoldata,ax2)
+    ax2.set_title("(b):1950-1975",fontsize=6)
+    ax2.axvline(0,ls=":",c="k")
+    ax2.set_xlim(-5,5)
+    region_color_axis(ax2,ticks=False)
+    ax2.set_xlabel("S/N")
+    boxplot_mydata(recentdata,ax3)
+    ax3.set_xlim(-5,5)
+    region_color_axis(ax3,ticks=False)
+    ax3.set_title("(c): 1981-2017",fontsize=6)
+    ax3.set_xlabel("S/N")
+    ax3.axvline(0,ls=":",c="k")
+    for ax in plt.gcf().axes:
+        plt.setp(ax.get_xticklabels(),fontsize=6)
+        plt.setp(ax.get_yticklabels(),fontsize=6)
+        plt.setp(ax.xaxis.get_label(),fontsize=6)
+        plt.setp(ax.yaxis.get_label(),fontsize=6)
+    
+def boxplot_mydata(histdata,ax1):        
+    bp = ax1.boxplot(histdata, notch=0, sym='+', vert=0, whis=1.5)
+    plt.setp(bp['boxes'], color='w')
+    plt.setp(bp['whiskers'], color='k')
+    plt.setp(bp['fliers'], color='k', marker='+')
+    plt.setp(bp['medians'], color='k')
+
+    # Add a horizontal grid to the plot, but make it very light in color
+    # so we can use it for reading data values but not be distracting
+    #ax1.yaxis.grid(True, linestyle='-', which='major', color='lightgrey',alpha=0.5)
+
+    # Hide these grid behind plot objects
+
+
+    # Now fill the boxes with desired colors
+    boxColors = [get_dataset_color("tree_noise"), get_dataset_color("H85")]
+    numBoxes = len(histdata)
+    medians = list(range(numBoxes))
+    for i in range(numBoxes):
+        box = bp['boxes'][i]
+        boxX = []
+        boxY = []
+        for j in range(5):
+            boxX.append(box.get_xdata()[j])
+            boxY.append(box.get_ydata()[j])
+        boxCoords = np.column_stack([boxX, boxY])
+
+        k = i % 2
+        boxPolygon = Polygon(boxCoords, facecolor=boxColors[k])
+        ax1.add_patch(boxPolygon)
+        # Now draw the median lines back over what we just filled in
+        # med = bp['medians'][i]
+        # medianX = []
+        # medianY = []
+        # for j in range(2):
+        #     medianX.append(med.get_xdata()[j])
+        #     medianY.append(med.get_ydata()[j])
+        #     ax1.plot(medianX, medianY, 'k')
+        #     medians[i] = medianY[0]
+        
+        
+def region_color_axis(ax1,ticks=True):
+    testx=np.linspace(*ax1.get_xlim())
+    i=0
+    for X in ["ALL","ANZDA","MADA","MXDA","NADA","OWDA"]:
+        ax1.fill_between(testx,np.zeros_like(testx)+.5+2*i,np.zeros_like(testx)+2.5+2*i,color=colorregions(X),alpha=0.1)
+        i+=1
+        if ticks:
+            ax1.set_yticks(np.arange(1.5,12.5,2))
+            ax1.set_yticklabels(["GDA","ANZDA","MADA","MXDA","NADA","OWDA"])
+        else:
+            ax1.set_yticks([])
+         
+    
+
+def test_noise(D,L,marker="o"):
+    early=('1400-1-1','1600-1-1')
+    late = ('1650-1-1','1850-1-1')
+    #earr=[]
+    #larr=[]
+    pvals=[]
+    e=[]
+    l=[]
+    
+    for X in ["ALL","ANZDA","MADA","MXDA","NADA","OWDA"]:
+        proj=getattr(D,X).projection
+        earr=b.bootstrap_slopes(proj(time=early),L).asma()
+        e=np.std(earr)
+        larr=b.bootstrap_slopes(proj(time=late),L).asma()
+        l=np.std(larr)
+        print colorregions(X)
+        plt.plot([e],[l],marker=marker,c=colorregions(X),label=X)
+        pvals+=[stats.ks_2samp(earr.compressed(),larr.compressed())[1]]
+    return pvals
+        
+        
+def aerosol_fingerprint(D):
+    NO,YES=b.aerosol_indirect(D)
+    aerosol_start = cdtime.comptime(1951,1,1)
+    aerosol_stop = cdtime.comptime(1975,12,31)
+    yessolver = b.Eof(YES(time=(aerosol_start,aerosol_stop)))
+    nosolver = b.Eof(NO(time=(aerosol_start,aerosol_stop)))
+    yesfac=da.get_orientation(yessolver)
+    nofac=da.get_orientation(nosolver)
+
+    plt.subplot(221)
+    m=b.landplot(yesfac*yessolver.eofs()[0],vmin=-.1,vmax=.1)
+    #m.drawcoastlines()
+    m.fillcontinents(color="gray",zorder=0)
+    plt.colorbar(orientation="horizontal",label="EOF loading")
+    plt.title("(a): EOF1 for models with aerosol indirect effect",fontsize=8)
+    plt.ylim(-60,90)
+
+    plt.subplot(222)
+    m=b.landplot(nofac*nosolver.eofs()[0],vmin=-.1,vmax=.1)
+    #m.drawcoastlines()
+    m.fillcontinents(color="gray",zorder=0)
+    plt.ylim(-60,90)
+    plt.colorbar(orientation="horizontal",label="EOF loading")
+    plt.title("(b) EOF1 for models without aerosol indirect effect",fontsize=8)
+
+    plt.subplot(223)
+    Plotting.time_plot(yesfac*yessolver.pcs()[:,0],c="k")
+    plt.ylabel("Temporal Amplitude")
+    plt.title("(c) PC1 for models with aerosol indirect effect",fontsize=8)
+
+    plt.subplot(224)
+    Plotting.time_plot(nofac*nosolver.pcs()[:,0],c="k")
+    plt.ylabel("Temporal Amplitude")
+    plt.title("(d) PC1 for models without aerosol indirect effect",fontsize=8)
+    for ax in plt.gcf().axes:
+        plt.setp(ax.get_xticklabels(),fontsize=6)
+        plt.setp(ax.get_yticklabels(),fontsize=6)
+        plt.setp(ax.xaxis.get_label(),fontsize=6)
+        plt.setp(ax.yaxis.get_label(),fontsize=6)
+    
